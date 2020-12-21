@@ -13,6 +13,24 @@ https://github.com/G33kDude/Socket.ahk/
 SetBatchLines, -1
 CoordMode, Mouse, Screen
 
+basedir = C:\buf\rom\ahk\out
+
+
+
+
+StartDateTime := TimeStr()
+dirout = %basedir%\%StartDateTime%
+dirout = %basedir%
+FileCreateDir, %dirout%
+fn = %dirout%\log.txt
+logfile := FileOpen(fn, "w")
+if !IsObject(logfile)
+{
+    MsgBox Can't open "%fn%" for writing.
+    return
+}
+
+
 TimeStr()
 {
     FormatTime, StartDateTime, %A_NowUTC%, yyyy-MM-dd_HH.mm.ss
@@ -100,7 +118,7 @@ BPShow(parsed)
     send X
     send {Up}
     ; let user oogle the data
-    Sleep, 2000
+    Sleep, parsed.ms
     ; Close hex view
     Send {Esc}
 
@@ -111,7 +129,9 @@ BPShow(parsed)
 
 BPSave(parsed)
 {
-    basename = parsed.basename
+    global dirout
+    basename := parsed.basename
+    fn := dirout . "\" . basename
 
     ; file => save pattern as
     ; activate file menu
@@ -124,11 +144,18 @@ BPSave(parsed)
     send {Enter}
     ; save dialogue
     Sleep, 400
-    fn := "%dirout%\%basename%"
+
     Send %fn%
     Sleep, 100
     send {Enter}
     Sleep, 100
+
+    ; Already exists
+    if WinExist("Confirm Save As") {
+        Send {Left}
+        send {Enter}
+    }
+
     ; file format options: accept deafult
     send {Enter}
     
@@ -136,17 +163,78 @@ BPSave(parsed)
     return { "command": parsed.command, "file": fn }
 }
 
-; https://autohotkey.com/board/topic/29293-closed-collection-of-beautiful-one-liner-codes/#entry187910
-AscToHex(str,chr=1,n=0,mode=0)
+
+Nib2Hex(n)
 {
-   Return !mode ? (AscToHex(1,chr,asc(SubStr(str,chr,1)),1) . (chr < StrLen(str) ? AscToHex(str,chr+1) : "")) : ((n < 16 ? "" : AscToHex(1,chr,n//16,1)) . ((d:=mod(n,16)) < 10 ? d : Chr(d+55)))
+    return n < 10 ? Chr(48 + n) : Chr(55 + n)
+}
+
+Char2Hex(c)
+{
+    n := asc(c)
+    l := Nib2Hex(n >> 4)
+    r := Nib2Hex(n & 0xF)
+    return l . r
+}
+
+U82Hex(n)
+{
+    l := Nib2Hex(n >> 4)
+    r := Nib2Hex(n & 0xF)
+    return l . r
+}
+
+
+/*
+AHK v1 doesn't handle binary data well
+This function is inherently unsafe without immediately converting to hex
+Instead load to hex string
+
+Str2Hex(str)
+{
+    ret := ""
+    ; doesn't work correctly on binary data
+    ; Loop, Parse, str
+    i := 0
+    while (i < StrLen(str))
+    {
+        c := SubStr(str, A_Index, 1)
+        ret := ret . Char2hex(c)
+        i := i + 1
+    }
+    return ret
+}
+*/
+
+Fn2Hex(fn)
+{
+    f := FileOpen(fn, "r")
+    if (ErrorLevel != 0)
+    {
+        return ""
+    }
+
+    ret := ""
+    i := 0
+    while (n := f.rawRead(cbuf, 1))
+    {
+        n := NumGet(cbuf, "UChar")
+        ; ret := ret . Char2hex(cbuf)
+        ret := ret . U82Hex(n)
+
+        i := i + 1
+    }
+    f.close()
+    return ret
 }
 
 BPTxFile(parsed)
 {
-    fn = parsed.file
-    FileRead, contents, %fn%
-    return { "command": parsed.command, "file": fn, "hex": AscToHex(contents) }
+    global dirout
+    basename := parsed.basename
+    fn := dirout . "\" . basename
+
+    return { "command": parsed.command, "file": fn, "hex": Fn2Hex(fn) }
 }
 
 ProcessCommand(sock, line)
@@ -158,6 +246,8 @@ ProcessCommand(sock, line)
 
     if (parsed.command == "reset") {
         reply := BPReset(parsed)
+    } else if (parsed.command == "nop") {
+        reply := { "command": parsed.command }
     } else if (parsed.command == "about") {
         reply := BPAbout(parsed)
     } else if (parsed.command == "read") {
@@ -180,16 +270,34 @@ OnAccept(Server)
 {
     sock := Server.Accept()
     ; Doesn't seem to detect closed sockets correctly
-    ; Work around by timing out for idle
+    ; Work around by timing out for idle manually
     sock.Blocking := False
     ; aha! timeout of 0 doesn't detect closed socket
     ; but an arbitrarily long timeout does instantly
     ; set it long enough to still allow manual testing for now
-    sock.BlockSleep := 60000
+    ; sock.BlockSleep := 1000
 
-    while line := sock.RecvLine()
-        ProcessCommand(sock, line)
+    ; 2020-12-21: I misinterpreted the original issue here
+    ; might be able to revert this to the original AHK timeout code,
+    ; but IMHO this is slightly better overall
+    timeout := 1000
+    last := A_TickCount
+    Log("Connect @ " . last)
+    while (A_TickCount - last < timeout)
+    {
+        line := sock.RecvLine()
+        if (line)
+        {
+            ProcessCommand(sock, line)
+            last := A_TickCount
+            ; Log("Finished command @ " . last)
+        } else {
+            Sleep, 10
+            ; Log("Timeout command @ " . A_TickCount)
+        }
+    }
 
+    Log("Disconnect @ " . A_TickCount)
     Sock.Disconnect()
 }
 
@@ -199,28 +307,16 @@ OnExit()
     ExitApp
 }
 
-StartDateTime := TimeStr()
-basedir = F:\buffer\ahk\out
-dirout = %basedir%\%StartDateTime%
-dirout = %basedir%
-FileCreateDir, %dirout%
-fn = %dirout%\log.txt
-logfile := FileOpen(fn, "w")
-if !IsObject(logfile)
-{
-    MsgBox Can't open "%fn%" for writing.
-    return
-}
 
 Log("Starting server at " . StartDateTime)
 
 
 Server := new SocketTCP()
 Server.OnAccept := Func("OnAccept")
-Server.Bind(["0.0.0.0", 1337])
+Server.Bind(["0.0.0.0", 13377])
 Server.Listen()
 
 
-Esc::
+Shift::
 Onexit()
 return
