@@ -17,12 +17,17 @@ class NoChipInSocket(BPError):
 class NotInsertedCorrectly(BPError):
     pass
 
+class ChipInsertedBackwards(BPError):
+    pass
+
 
 def make_read_error(msg):
     if "There is no chip in the socket." in msg:
         return NoChipInSocket()
     elif "The chip is not inserted in the socket correctly." in msg:
         return NotInsertedCorrectly()
+    elif "The chip is inserted backwards." in msg:
+        return ChipInsertedBackwards()
     else:
         return BPError(msg)
 
