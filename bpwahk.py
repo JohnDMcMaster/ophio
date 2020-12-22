@@ -96,7 +96,11 @@ def hexdump(data, label=None, indent='', address_width=8, f=sys.stdout):
 
 
 class BPWAHK:
-    def __init__(self, host="172.16.190.133", port=13377):
+    def __init__(self, host=None, port=None):
+        if host is None:
+            host = "172.16.190.133"
+        if port is None:
+            port = 13377
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
         self.socketf = self.socket.makefile()
