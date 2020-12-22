@@ -129,7 +129,7 @@ BPShow(parsed)
 
 BPSave(parsed)
 {
-    global dirout
+	global dirout
     basename := parsed.basename
     fn := dirout . "\" . basename
 
@@ -143,23 +143,35 @@ BPSave(parsed)
     Send {Down}
     send {Enter}
     ; save dialogue
-    Sleep, 400
+	WinWait, Save As, , 1000
+	if (ErrorLevel != 0)
+	{
+		return { "command": parsed.command, "error": 1, "message": "Save As timeout" }
+	}
+    Sleep, 100
 
     Send %fn%
-    Sleep, 100
+    Sleep, 200
     send {Enter}
-    Sleep, 100
+    Sleep, 200
 
-    ; Already exists
+	; Already exists
     if WinExist("Confirm Save As") {
-        Send {Left}
-        send {Enter}
-    }
+		Send {Left}
+		send {Enter}
+		Sleep, 200
+	}
+
+	WinWait, Save Data Pattern File, , 1000
+	if (ErrorLevel != 0)
+	{
+		return { "command": parsed.command, "error": 1, "message": "Save Data Pattern File timeout" }
+	}
 
     ; file format options: accept deafult
     send {Enter}
     
-    Sleep, 200
+    Sleep, 300
     return { "command": parsed.command, "file": fn }
 }
 
@@ -192,45 +204,45 @@ Instead load to hex string
 
 Str2Hex(str)
 {
-    ret := ""
-    ; doesn't work correctly on binary data
-    ; Loop, Parse, str
-    i := 0
-    while (i < StrLen(str))
-    {
-        c := SubStr(str, A_Index, 1)
-        ret := ret . Char2hex(c)
-        i := i + 1
-    }
-    return ret
+	ret := ""
+	; doesn't work correctly on binary data
+	; Loop, Parse, str
+	i := 0
+	while (i < StrLen(str))
+	{
+		c := SubStr(str, A_Index, 1)
+		ret := ret . Char2hex(c)
+		i := i + 1
+	}
+	return ret
 }
 */
 
 Fn2Hex(fn)
 {
-    f := FileOpen(fn, "r")
-    if (ErrorLevel != 0)
-    {
-        return ""
-    }
+	f := FileOpen(fn, "r")
+	if (ErrorLevel != 0)
+	{
+		return ""
+	}
 
-    ret := ""
-    i := 0
-    while (n := f.rawRead(cbuf, 1))
-    {
-        n := NumGet(cbuf, "UChar")
-        ; ret := ret . Char2hex(cbuf)
-        ret := ret . U82Hex(n)
+	ret := ""
+	i := 0
+	while (n := f.rawRead(cbuf, 1))
+	{
+		n := NumGet(cbuf, "UChar")
+		; ret := ret . Char2hex(cbuf)
+		ret := ret . U82Hex(n)
 
-        i := i + 1
-    }
-    f.close()
-    return ret
+		i := i + 1
+	}
+	f.close()
+	return ret
 }
 
 BPTxFile(parsed)
 {
-    global dirout
+	global dirout
     basename := parsed.basename
     fn := dirout . "\" . basename
 
@@ -277,27 +289,27 @@ OnAccept(Server)
     ; set it long enough to still allow manual testing for now
     ; sock.BlockSleep := 1000
 
-    ; 2020-12-21: I misinterpreted the original issue here
-    ; might be able to revert this to the original AHK timeout code,
-    ; but IMHO this is slightly better overall
-    timeout := 1000
-    last := A_TickCount
-    Log("Connect @ " . last)
+	; 2020-12-21: I misinterpreted the original issue here
+	; might be able to revert this to the original AHK timeout code,
+	; but IMHO this is slightly better overall
+	timeout := 60000
+	last := A_TickCount
+	Log("Connect @ " . last)
     while (A_TickCount - last < timeout)
-    {
-        line := sock.RecvLine()
-        if (line)
-        {
-            ProcessCommand(sock, line)
-            last := A_TickCount
-            ; Log("Finished command @ " . last)
-        } else {
-            Sleep, 10
-            ; Log("Timeout command @ " . A_TickCount)
-        }
-    }
+	{
+		line := sock.RecvLine()
+		if (line)
+		{
+			ProcessCommand(sock, line)
+			last := A_TickCount
+			; Log("Finished command @ " . last)
+		} else {
+			Sleep, 10
+			; Log("Timeout command @ " . A_TickCount)
+		}
+	}
 
-    Log("Disconnect @ " . A_TickCount)
+	Log("Disconnect @ " . A_TickCount)
     Sock.Disconnect()
 }
 
