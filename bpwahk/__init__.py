@@ -17,6 +17,7 @@ class NoChipInSocket(BPError):
 class NotInsertedCorrectly(BPError):
     pass
 
+
 class ChipInsertedBackwards(BPError):
     pass
 
@@ -162,38 +163,3 @@ class BPWAHK:
         basename = "tmp.bin"
         self.save(basename=basename)
         return self.tx_file(basename=basename)
-
-
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Replay captured USB packets')
-    parser.add_argument('--host', type=str, default="192.168.0.247")
-    parser.add_argument('--port', type=int, default=13377)
-    parser.add_argument('command')
-    parser.add_argument('args', nargs='*')
-    args = parser.parse_args()
-
-    bp = BPWAHK(host=args.host, port=args.port)
-    # bp.version()
-
-    if args.command == "version":
-        print("Version %s" % bp.version())
-    elif args.command == "nop":
-        bp.nop()
-    elif args.command == "read":
-        bp.read()
-    elif args.command == "show":
-        bp.show()
-    elif args.command == "save":
-        bp.save(basename=args.args[0])
-    elif args.command == "tx_file":
-        hexdump(bp.tx_file(basename=args.args[0]))
-    elif args.command == "read_bin":
-        hexdump(bp.read_bin())
-    else:
-        print("Unknown command")
-
-
-if __name__ == "__main__":
-    main()
