@@ -8,8 +8,8 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='Read remotely and store / display')
-    parser.add_argument('--host', type=str, default="192.168.0.247")
-    parser.add_argument('--port', type=int, default=13377)
+    parser.add_argument('--host', type=str, default=None)
+    parser.add_argument('--port', type=int, default=None)
     parser.add_argument('fn_out', nargs='?')
     args = parser.parse_args()
 

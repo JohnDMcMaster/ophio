@@ -98,13 +98,39 @@ def hexdump(data, label=None, indent='', address_width=8, f=sys.stdout):
 
 class BPWAHK:
     def __init__(self, host=None, port=None):
-        if host is None:
-            host = "172.16.190.133"
-        if port is None:
-            port = 13377
+        self.host = host
+        self.port = port
+        if self.host is None:
+            self.host = "192.168.0.247"
+        if self.port is None:
+            self.port = 13377
+        self.open()
+
+    def __del__(self):
+        self.close()
+
+    def open(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, port))
+        try:
+            self.socket.connect((self.host, self.port))
+        except:
+            print("Failed to connect to %s:%s" % (self.host, self.port))
+            raise
         self.socketf = self.socket.makefile()
+
+    def relaunch(self):
+        self.close()
+        self.open()
+
+    def close(self):
+        if self.socket:
+            # Workaround for connection issue
+            self.reload()
+            # Maybe this is all that is needed
+            # nope, keep reload
+            self.socket.close()
+        self.socket = None
+        self.socketf = None
 
     def tx(self, j):
         self.socket.sendall(json.dumps(j).encode("ascii") + b'\n')
@@ -129,6 +155,9 @@ class BPWAHK:
 
     def nop(self):
         self.cmd(command="nop")
+
+    def reload(self):
+        self.cmd(command="reload")
 
     def version(self):
         """

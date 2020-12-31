@@ -5,8 +5,8 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Talk to BPWin AHK server')
-    parser.add_argument('--host', type=str, default="192.168.0.247")
-    parser.add_argument('--port', type=int, default=13377)
+    parser.add_argument('--host', type=str, default=None)
+    parser.add_argument('--port', type=int, default=None)
     parser.add_argument('command')
     parser.add_argument('args', nargs='*')
     args = parser.parse_args()
@@ -18,6 +18,8 @@ def main():
         print("Version %s" % bp.version())
     elif args.command == "nop":
         bp.nop()
+    elif args.command == "reload":
+        bp.reload()
     elif args.command == "read":
         bp.read()
     elif args.command == "show":
