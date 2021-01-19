@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from bpwahk import BPWAHK, hexdump
 
 
@@ -22,12 +23,19 @@ def main():
         bp.reload()
     elif args.command == "read":
         bp.read()
+    elif args.command == "program":
+        bp.program()
     elif args.command == "show":
         bp.show()
     elif args.command == "save":
         bp.save(basename=args.args[0])
+    elif args.command == "open_data":
+        bp.open_data(basename=args.args[0])
     elif args.command == "tx_file":
         hexdump(bp.tx_file(basename=args.args[0]))
+    # elif args.command == "rx_file":
+    #     buf = open(args.args[1], "rb").read()
+    #    bp.rx_file(basename=args.args[0], buf)
     elif args.command == "read_bin":
         hexdump(bp.read_bin())
     else:

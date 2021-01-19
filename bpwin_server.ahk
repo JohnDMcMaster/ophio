@@ -103,6 +103,21 @@ BPRead(parsed)
     return { "command": parsed.command }
 }
 
+BPProgram(parsed)
+{
+    ;initiate write
+    send {SPACE}
+	; about 1200
+    Sleep, 1500
+
+	; clear confirmation
+    send {SPACE}
+	; about 4000
+    Sleep, 5000
+
+    return { "command": parsed.command }
+}
+
 BPShow(parsed)
 {
     ; activate data view
@@ -137,13 +152,19 @@ BPSave(parsed)
     ; activate file menu
     ; send !f
     Send {Alt}
+    Sleep, 50
     Send {Down}
+    Sleep, 10
     Send {Down}
+    Sleep, 10
     Send {Down}
+    Sleep, 10
     Send {Down}
+    Sleep, 10
     send {Enter}
+    Sleep, 10
     ; save dialogue
-	WinWait, Save As, , 1000
+	WinWait, Save As, , 3
 	if (ErrorLevel != 0)
 	{
 		return { "command": parsed.command, "error": 1, "message": "Save As timeout" }
@@ -162,7 +183,7 @@ BPSave(parsed)
 		Sleep, 200
 	}
 
-	WinWait, Save Data Pattern File, , 1000
+	WinWait, Save Data Pattern File, , 3
 	if (ErrorLevel != 0)
 	{
 		return { "command": parsed.command, "error": 1, "message": "Save Data Pattern File timeout" }
@@ -175,6 +196,49 @@ BPSave(parsed)
     return { "command": parsed.command, "file": fn }
 }
 
+BPOpen(parsed)
+{
+	global dirout
+    basename := parsed.basename
+    fn := dirout . "\" . basename
+
+    ; file => save pattern as
+    ; activate file menu
+    ; send !f
+    Send {Alt}
+    Sleep, 50
+    Send {Down}
+    Sleep, 10
+    Send {Down}
+    Sleep, 10
+    send {Enter}
+    Sleep, 10
+    ; open dialogue
+	WinWait, Open, , 3
+	if (ErrorLevel != 0)
+	{
+		return { "command": parsed.command, "error": 1, "message": "Open timeout" }
+	}
+    Sleep, 100
+
+    Send %fn%
+    Sleep, 200
+    send {Enter}
+    Sleep, 200
+
+
+	WinWait, Load Data Pattern File, , 3
+	if (ErrorLevel != 0)
+	{
+		return { "command": parsed.command, "error": 1, "message": "Load Data Pattern File timeout" }
+	}
+
+    ; file format options: accept deafult
+    send {Enter}
+    
+    Sleep, 300
+    return { "command": parsed.command, "file": fn }
+}
 
 Nib2Hex(n)
 {
@@ -196,6 +260,18 @@ U82Hex(n)
     return l . r
 }
 
+Hex2Nib(c)
+{
+	; FIXME
+	return 0
+}
+
+Hex2U8(buf)
+{
+    l := Hex2Nib(SubStr(buf, 0, 1))
+    r := Hex2Nib(SubStr(buf, 1, 1))
+	return (l << 4) | r
+}
 
 /*
 AHK v1 doesn't handle binary data well
@@ -227,17 +303,35 @@ Fn2Hex(fn)
 	}
 
 	ret := ""
-	i := 0
+	; FIXME: this might be a memory leak
 	while (n := f.rawRead(cbuf, 1))
 	{
 		n := NumGet(cbuf, "UChar")
 		; ret := ret . Char2hex(cbuf)
 		ret := ret . U82Hex(n)
-
-		i := i + 1
 	}
 	f.close()
 	return ret
+}
+
+Hex2Fn(hex, fn)
+{
+	f := FileOpen(fn, "w")
+	if (ErrorLevel != 0)
+	{
+		return ""
+	}
+
+	i := 0
+	while (i < 6)
+	{
+		buf = SubStr(hex, i, 2)
+		u8 = Hex2U8(buf)
+		f.RawWrite(u8, 1)
+		i := i + 2
+	}
+
+	f.close()
 }
 
 BPTxFile(parsed)
@@ -249,6 +343,18 @@ BPTxFile(parsed)
     return { "command": parsed.command, "file": fn, "hex": Fn2Hex(fn) }
 }
 
+BPRxFile(parsed)
+{
+	; FIXME
+	; end application is working around by using network share for now
+
+	global dirout
+    basename := parsed.basename
+    fn := dirout . "\" . basename
+
+    Hex2Fn(hex, fn)
+}
+
 ProcessCommand(sock, line)
 {
     Log("RX: " . line)
@@ -258,24 +364,36 @@ ProcessCommand(sock, line)
 
     if (parsed.command == "reset") {
         reply := BPReset(parsed)
+    } else if (parsed.command == "reload") {
+		Reload
+        reply := { "command": parsed.command }
     } else if (parsed.command == "nop") {
         reply := { "command": parsed.command }
     } else if (parsed.command == "about") {
         reply := BPAbout(parsed)
     } else if (parsed.command == "read") {
         reply := BPRead(parsed)
+    } else if (parsed.command == "program") {
+        reply := BPProgram(parsed)
     } else if (parsed.command == "show") {
         reply := BPShow(parsed)
     } else if (parsed.command == "save") {
         reply := BPSave(parsed)
+    } else if (parsed.command == "open_data") {
+        reply := BPOpen(parsed)
     } else if (parsed.command == "tx_file") {
         reply := BPTxFile(parsed)
+    } else if (parsed.command == "rx_file") {
+        reply := BPRxFile(parsed)
     } else {
         reply := { "command": parsed.command, "error": 1, "message": "Invalid command" }
     }
     reply := JSON.Dump(reply)
     Log("TX: " . reply)
     Sock.SendText(reply . "`n")
+	
+	; Hack: memory leaks and other issues
+	; Reload
 }
 
 OnAccept(Server)

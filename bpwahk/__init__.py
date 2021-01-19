@@ -177,15 +177,26 @@ class BPWAHK:
         if res.get("error", 0):
             raise make_read_error(res["message"])
 
+    def program(self):
+        res = self.cmd(command="program")
+        if res.get("error", 0):
+            assert 0, "fixme"
+
     def show(self):
         self.cmd(command="show", ms=2000)
 
     def save(self, basename):
         self.cmd(command="save", basename=basename)
 
+    def open_data(self, basename):
+        self.cmd(command="open_data", basename=basename)
+
     def tx_file(self, basename):
         res = self.cmd(command="tx_file", basename=basename)
         return binascii.unhexlify(res["hex"])
+
+    def rx_file(self, basename, buf):
+        self.cmd(command="rx_file", basename=basename, hex=binascii.hexlify(buf))
 
     def read_bin(self):
         self.read()
