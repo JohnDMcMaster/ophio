@@ -4,7 +4,10 @@ import socket
 import json
 import binascii
 import sys
-
+import errno
+import datetime
+import os
+import glob
 
 class BPError(Exception):
     pass
@@ -95,6 +98,34 @@ def hexdump(data, label=None, indent='', address_width=8, f=sys.stdout):
         ]))
         f.write((" " * (bytes_per_row - real_data)) + "|\n")
 
+
+def default_date_dir(root, prefix, postfix):
+    datestr = datetime.datetime.now().isoformat()[0:10]
+
+    if prefix:
+        prefix = prefix + '_'
+    else:
+        prefix = ''
+
+    n = 1
+    while True:
+        fn = os.path.join(root, '%s%s_%02u' % (prefix, datestr, n))
+        if len(glob.glob(fn + '*')) == 0:
+            if postfix:
+                return fn + '_' + postfix
+            else:
+                return fn
+        n += 1
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 class BPWAHK:
     def __init__(self, host=None, port=None):
