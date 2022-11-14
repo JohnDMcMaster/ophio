@@ -1,6 +1,6 @@
 # ophio
 
-Device programming utilities that work with other programming utilities in a symbiotic / parasitic relationship depending on your perspective
+Device programming utilities that work with proprietary programming utilities in a symbiotic relationship
 
 Sample projects:
   * AutoHotKey remote control
